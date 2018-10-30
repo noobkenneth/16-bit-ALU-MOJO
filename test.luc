@@ -1,0 +1,105 @@
+module test (
+    input clk,  // clock
+    input rst,  // reset
+    input io_button [5],     // 5 buttons on IO Shield
+    input io_dip [3][8],     // DIP switches on IO Shield
+    
+    output out[16], //output
+    output zOut,
+    output vOut,
+    output nOut,
+    output text[4][7]
+    
+  ) {
+  
+  .clk(clk), .rst(rst) {
+      
+    fsm state(#INIT(IDLE)) = {IDLE, MANUAL_A, MANUAL_B, MANUAL, ADDER1, ADDER2, ADDER3,ADDER4, SUB1, SUB2, SUB3,SUB4, ADDER_ERR, SUB_ERR,
+                                        AND1,AND2,AND3,AND_ERR,OR,OR2,OR_ERR,XOR,XOR2,XOR_ERR,INV,INV_ERR,
+                                        CMPEQ, CMPLT, CMPLE, EQ_ERR, LT_ERR, LE_ERR,
+                                        LDR,LDR_ERR,
+                                        SHL, SHR, SRA, SHL2, SHR2, SRA2, SHL_ERR,SHR_ERR, SRA_ERR,
+                                        DIV,DIV_ERR,MUL,MUL2,MUL3,MUL_ERR,NEG,NEG_ERR,ABS,ABS2,ABS_ERR,
+                                        FADD, FMUL, ITOF, FTOI,
+                                        FADD_ERR, FMUL_ERR, ITOF_ERR, FTOI_ERR,
+                                        PASS
+                                        };  
+    dff counter[30];    // counter for FSM steps
+    dff aSave[16];
+    dff alufnSave[6];
+  }
+  alu alu;
+    
+  always {
+    out = alu.alu;
+    zOut = alu.zOut;
+    vOut = alu.vOut;
+    nOut = alu.nOut;
+    alu.alufn = 6hx;
+    alu.a = 8hxx;    // impt, allows a,b to keep previous inputs
+    alu.b = 8hxx;
+    
+    text = {"z","z","z","z"};
+    counter.d = counter.q + 1;
+    
+   
+    case(state.q) {
+      state.IDLE:        
+        out = 0;
+        nOut = 0;
+        zOut = 0;
+        vOut = 0;
+        text = {"i", "d", "l", "e"};
+
+        
+        //Right button turns machine to auto checking
+        if(io_button[4]){
+          state.d = state.ADDER1;
+        }
+        
+        //Left button turns machine to manual checking
+        if(io_button[3]){
+          state.d = state.MANUAL_A;//Manual Checking of Adder
+          
+        }
+      
+      state.MANUAL_A:
+        alufnSave.d = io_dip[0][5:0];     //saves alufn input       
+        aSave.d[7:0] = io_dip[1];         //saves a input
+        aSave.d[15:8] = io_dip[2];
+        //alu.b = io_dip[2];
+        
+        text = {"a", 7b0, 7b0, 7b0};
+        out = aSave.q; //only for the manual state does out reflect a input
+        zOut = 0;      //ensures that z v n reflects 0 since alu is not being used
+        nOut = 0;
+        vOut = 0;
+        
+        counter.d = 0;              //clock counter is reset to 0 in manual mode
+        if (io_button[1] == 1){     //pressing "CENTER" button starts auto testing
+          state.d = state.ADDER1; 
+        }
+        if (io_button[3] == 1){     //pressing the left button will send to next manual state
+          state.d = state.MANUAL_B;
+        }
+        
+      state.MANUAL_B:
+        alu.a = aSave.q;
+        alu.alufn = alufnSave.q;
+        alu.b[7:0] = io_dip[1];
+        alu.b[15:8] = io_dip[2];
+        
+        text = {"b", 7b0, 7b0, 7b0};
+        
+        if (io_button[1] == 1){     //pressing "CENTER" button starts auto testing
+          state.d = state.ADDER1; 
+        }
+        if (io_button[3] == 1){
+          state.d = state.MANUAL_A;  //pressing the left button will revert it to the previous state
+        }
+      
+      
+  }
+}
+}
+  
