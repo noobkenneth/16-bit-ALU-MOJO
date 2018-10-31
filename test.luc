@@ -14,21 +14,22 @@ module test (
   
   .clk(clk), .rst(rst) {
       
-    fsm state(#INIT(IDLE)) = {IDLE, MANUAL_A, MANUAL_B, MANUAL, ADDER1, ADDER2, ADDER3,ADDER4, SUB1, SUB2, SUB3,SUB4, ADDER_ERR, SUB_ERR,
-                                        AND1,AND2,AND3,AND_ERR,OR,OR2,OR_ERR,XOR,XOR2,XOR_ERR,INV,INV_ERR,
-                                        CMPEQ, CMPLT, CMPLE, EQ_ERR, LT_ERR, LE_ERR,
-                                        LDR,LDR_ERR,
-                                        SHL, SHR, SRA, SHL2, SHR2, SRA2, SHL_ERR,SHR_ERR, SRA_ERR,
-                                        DIV,DIV_ERR,MUL,MUL2,MUL3,MUL_ERR,NEG,NEG_ERR,ABS,ABS2,ABS_ERR,
-                                        FADD, FMUL, ITOF, FTOI,
-                                        FADD_ERR, FMUL_ERR, ITOF_ERR, FTOI_ERR,
-                                        PASS
-                                        };  
-    dff counter[30];    // counter for FSM steps
+    fsm state(#INIT(IDLE)) = {IDLE, MANUAL_A, MANUAL_B, MANUAL, 
+                              ADD1, ADD2, ADD3, ADD4, ADD_ERR, SUB1, SUB2, SUB3,SUB4, SUB_ERR, //states to check adder
+                              AND1, AND2, AND3, AND4, AND_ERR,OR1,OR2, OR3, OR4, OR_ERR,       //states to check boole
+                              XOR1, XOR2, XOR3, XOR4, XOR_ERR, LDR1, LDR2, LDR_ERR,
+                              CMPEQ1, CMPEQ2, EQ_ERR, CMPLT1, CMPLT2, LT_ERR,  CMPLE1, CMPLE2, LE_ERR,                     //states to check compare
+                              SHL1, SHL2, SHL_ERR, SHR1, SHR2, SHR_ERR, SRA1, SRA2, SRA_ERR,       //states to check shifter
+                              PASS
+                              };  
+    dff counter[27];    // counter for FSM steps
     dff aSave[16];
     dff alufnSave[6];
   }
   alu alu;
+  const BLINK = 22;
+  const DELAY = 26;
+  const LIGHT = 16hFFFF;
     
   always {
     out = alu.alu;
@@ -54,7 +55,8 @@ module test (
         
         //Right button turns machine to auto checking
         if(io_button[4]){
-          state.d = state.ADDER1;
+          counter.d = 0;
+          state.d = state.ADD1;
         }
         
         //Left button turns machine to manual checking
@@ -67,9 +69,8 @@ module test (
         alufnSave.d = io_dip[0][5:0];     //saves alufn input       
         aSave.d[7:0] = io_dip[1];         //saves a input
         aSave.d[15:8] = io_dip[2];
-        //alu.b = io_dip[2];
         
-        text = {"a", 7b0, 7b0, 7b0};
+        text = {"a", "z", "z", "z"};
         out = aSave.q; //only for the manual state does out reflect a input
         zOut = 0;      //ensures that z v n reflects 0 since alu is not being used
         nOut = 0;
@@ -77,7 +78,8 @@ module test (
         
         counter.d = 0;              //clock counter is reset to 0 in manual mode
         if (io_button[1] == 1){     //pressing "CENTER" button starts auto testing
-          state.d = state.ADDER1; 
+          counter.d = 0;
+          state.d = state.ADD1; 
         }
         if (io_button[3] == 1){     //pressing the left button will send to next manual state
           state.d = state.MANUAL_B;
@@ -89,16 +91,899 @@ module test (
         alu.b[7:0] = io_dip[1];
         alu.b[15:8] = io_dip[2];
         
-        text = {"b", 7b0, 7b0, 7b0};
+        text = {"b", "z","z","z"};
         
         if (io_button[1] == 1){     //pressing "CENTER" button starts auto testing
-          state.d = state.ADDER1; 
+          counter.d = 0;
+          state.d = state.ADD1; 
         }
         if (io_button[3] == 1){
           state.d = state.MANUAL_A;  //pressing the left button will revert it to the previous state
         }
+        
+      state.ADD1:
+        alu.alufn = Instruction.ADD;
+        alu.a = 16b0;
+        alu.b = 16b0;
+        text = {"a", "d", "d", 7b1};
+        if (alu.alu == 16b0 && alu.zOut == 1 && alu.vOut == 0 && alu.nOut == 0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.ADD2;
+        }
+        
+      state.ADD2:
+        alu.alufn = Instruction.ADD;
+        alu.a = 16b1;
+        alu.b = 16b1;
+        text = {"a", "d", "d", 7b10};
+        if (alu.alu == 16b10 && alu.zOut == 0 && alu.vOut == 0 && alu.nOut == 0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.ADD3;
+        }
+        
+      state.ADD3:
+        alu.alufn = Instruction.ADD;
+        alu.a = 16h5555;
+        alu.b = 16h5555;
+        text = {"a", "d", "d", 7b11};
+        if (alu.alu == 16hAAAA && alu.zOut == 0 && alu.vOut == 1 && alu.nOut == 1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.ADD4;
+        }
+        
+      state.ADD4:
+        alu.alufn = Instruction.ADD;
+        alu.a = 16hAAAA;
+        alu.b = 16hAAAA;
+        text = {"a", "d", "d", 7b100};
+        if (alu.alu == 16h5554 && alu.zOut == 0 && alu.vOut == 1 && alu.nOut == 0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.ADD_ERR;
+        }
+      state.ADD_ERR:
+        alu.alufn = Instruction.ADD;
+        alu.a = 16b0 + 1;            //adding a 1 to intenioinally mess up the outcome
+        alu.b = 16b0;
+        text = {"a", "d", "d", "e"};
+        if (alu.alu == 16b0 && alu.zOut) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SUB1;
+        }
+        
+      state.SUB1:
+        alu.alufn = Instruction.SUB;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"s", "u", "b", 7b1};
+        if (alu.alu == 16b0 && alu.zOut == 1 && alu.vOut == 0 && alu.nOut == 0  ) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SUB2;
+        }
+        
+      state.SUB2:
+        alu.alufn = Instruction.SUB;
+        alu.a = 16hFFFF;
+        alu.b = 16b0;
+        text = {"s", "u", "b", 7b10};
+        if (alu.alu == 16hFFFF && alu.zOut == 0 && alu.vOut == 0 && alu.nOut == 1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SUB3;
+        }
+        
+      state.SUB3:
+        alu.alufn = Instruction.SUB;
+        alu.a = 16b0;
+        alu.b = 16b1;
+        text = {"s", "u", "b", 7b11};
+        if (alu.alu == 16hFFFF && alu.zOut == 0 && alu.vOut == 0 && alu.nOut == 1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SUB4;
+        }
+        
+      state.SUB4:
+        alu.alufn = Instruction.SUB;
+        alu.a = 16h2;
+        alu.b = 16hFFFD;
+        text = {"s", "u", "b", 7b100};
+        if (alu.alu == 16h5 && alu.zOut == 0 && alu.vOut == 0 && alu.nOut == 0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SUB_ERR;
+        }
+      state.SUB_ERR:
+        alu.alufn = Instruction.SUB;
+        alu.a = 16h2 + 1 ;        //intentioinally adding 1 to mess up the result
+        alu.b = 16hFFFD;
+        text = {"s", "u", "b", "e"};
+        if (alu.alu == 16h5 && alu.zOut == 0 && alu.vOut == 0 && alu.nOut == 0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.AND1;
+        }
+        
+      state.AND1:
+        alu.alufn = Instruction.AND;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"a", "n", "d", 7b1};
+        if (alu.alu == 16hFFFF) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.AND2;
+        }         
       
+      state.AND2:
+        alu.alufn = Instruction.AND;
+        alu.a = 16h0;
+        alu.b = 16hFFFF;
+        text = {"a", "n", "d", 7b10};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.AND3;
+        }
+                 
+      state.AND3:
+        alu.alufn = Instruction.AND;
+        alu.a = 16hFFFF;
+        alu.b = 16h0;
+        text = {"a", "n", "d", 7b11};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.AND4;
+        }         
+      state.AND4:
+        alu.alufn = Instruction.AND;
+        alu.a = 16b0;
+        alu.b = 16b0;
+        text = {"a", "n", "d", 7b100};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.AND_ERR;
+        }
+      state.AND_ERR:
+        alu.alufn = Instruction.AND;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"a", "n", "d", "e"};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.OR1;
+        }
+                 
+      state.OR1:
+        alu.alufn = Instruction.OR;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"o", "r", "z", 7b1};
+        if (alu.alu == 16hFFFF) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.OR2;
+        }         
       
+      state.OR2:
+        alu.alufn = Instruction.OR;
+        alu.a = 16h0;
+        alu.b = 16hFFFF;
+        text = {"o", "r", "z", 7b10};
+        if (alu.alu == LIGHT) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.OR3;
+        }
+                 
+      state.OR3:
+        alu.alufn = Instruction.OR;
+        alu.a = 16hFFFF;
+        alu.b = 16h0;
+        text = {"o", "r", "z", 7b11};
+        if (alu.alu == LIGHT) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.OR4;
+        }         
+      state.OR4:
+        alu.alufn = Instruction.OR;
+        alu.a = 16b0;
+        alu.b = 16b0;
+        text = {"o", "r", "z", 7b100};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.OR_ERR;
+        }
+      state.OR_ERR:
+        alu.alufn = Instruction.OR;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"o", "r", "z", "e"};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.XOR1;
+        }
+      state.XOR1:
+        alu.alufn = Instruction.XOR;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"x", "o", "r", 7b1};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.XOR2;
+        }         
+      
+      state.XOR2:
+        alu.alufn = Instruction.XOR;
+        alu.a = 16h0;
+        alu.b = 16hFFFF;
+        text = {"x", "o", "r", 7b10};
+        if (alu.alu == LIGHT) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.XOR3;
+        }
+                 
+      state.XOR3:
+        alu.alufn = Instruction.XOR;
+        alu.a = 16hFFFF;
+        alu.b = 16h0;
+        text = {"x", "o", "r", 7b11};
+        if (alu.alu == LIGHT) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.XOR4;
+        }         
+      state.XOR4:
+        alu.alufn = Instruction.XOR;
+        alu.a = 16b0;
+        alu.b = 16b0;
+        text = {"x", "o", "r", 7b100};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.XOR_ERR;
+        }
+      state.XOR_ERR:
+        alu.alufn = Instruction.XOR;
+        alu.a = 16hFFFF;
+        alu.b = 16hFFFF;
+        text = {"x", "o", "r", "e"};
+        if (alu.alu == 16hFFFF) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.LDR1;
+        }      
+     state.LDR1:
+        alu.alufn = Instruction.LDR;
+        alu.a = 16hFFFF;
+        text = {"l", "d", "r", 7b1};
+        if (alu.alu == LIGHT) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.LDR2;
+        }         
+      state.LDR2:
+        alu.alufn = Instruction.LDR;
+        alu.a = 16b0;
+        text = {"l", "d", "r", 7b10};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.LDR_ERR;
+        }
+      state.LDR_ERR:
+        alu.alufn = Instruction.LDR;
+        alu.a = 16hFFFF;
+        text = {"l", "d", "r", "e"};
+        if (alu.alu == 16h0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1){
+          state.d = state.IDLE;  //pressing the right button will revert it to the idle state
+        }
+        
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPEQ1;
+        }
+      state.CMPEQ1:
+        alu.alufn = Instruction.CMPEQ;
+        alu.a = LIGHT;
+        alu.b = LIGHT;
+        
+        text = {"c", "e", "q", 7b1};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }
+          
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPEQ2;
+        }
+          
+      state.CMPEQ2:
+        alu.alufn = Instruction.CMPEQ;
+        alu.a = LIGHT;
+        alu.b = 16b0;
+        
+        text = {"c", "e", "q", 7b10};
+        if (alu.alu == 16b0) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }
+          
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.EQ_ERR;
+        }
+      state.EQ_ERR:
+        alu.alufn = Instruction.CMPEQ;
+        alu.a = 16b0 + 1;
+        alu.b = 16b0;
+        
+        text = {"c", "e", "q", "e"};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }
+          
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPLT1;
+        }        
+                    
+      state.CMPLT1:
+        alu.alufn = Instruction.CMPLT;
+        alu.a = 16b0;
+        alu.b = 16b1;
+        text = {"c", "l", "t", 7b1};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPLT2;
+        }
+      state.CMPLT2:
+        alu.alufn = Instruction.CMPLT;
+        alu.a = LIGHT;
+        alu.b = 16b0;
+        text = {"c", "l", "t", 7b10};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.LT_ERR;
+        }
+      state.LT_ERR:
+        alu.alufn = Instruction.CMPLT;
+        alu.a = 16b0 + 1;
+        alu.b = 16b1;
+        text = {"c", "l", "t", "e"};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPLE1;
+        }    
+      state.CMPLE1:
+        alu.alufn = Instruction.CMPLE;
+        alu.a = 16b0;
+        alu.b = 16b0;
+        text = {"c", "l", "e", 7b1};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.CMPLE2;
+        }
+      state.CMPLE2:
+        alu.alufn = Instruction.CMPLE;
+        alu.a = 16hFFFE;
+        alu.b = LIGHT;
+        text = {"c", "l", "e", 7b10};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.LE_ERR;
+        }
+      state.LE_ERR:
+        alu.alufn = Instruction.CMPLE;
+        alu.a = 16b0 + 1;
+        alu.b = 16b0;
+        text = {"c", "l", "e", "e"};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHL1;
+        }                
+      state.SHL1:
+        alu.alufn = Instruction.SHL;
+        alu.a = 16b11;
+        alu.b = 16b1;
+        text = {"s", "h", "l", 7b1};
+        if (alu.alu == 16b110) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHL2;
+        }  
+      state.SHL2:
+        alu.alufn = Instruction.SHL;
+        alu.a = 16b11111111;
+        alu.b = 16b11;
+        text = {"s", "h", "l", 7b10};
+        if (alu.alu == 16b11111111000) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHL_ERR;
+        }
+      state.SHL_ERR:
+        alu.alufn = Instruction.SHL;
+        alu.a = 16b11111111;
+        alu.b = 16b11 + 1;
+        text = {"s", "h", "l", "e"};
+        if (alu.alu == 16b11111111000) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHR1;
+        }        
+      state.SHR1:
+        alu.alufn = Instruction.SHR;
+        alu.a = 16b11;
+        alu.b = 16b1;
+        text = {"s", "h", "r", 7b1};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHR2;
+        } 
+      state.SHR2:
+        alu.alufn = Instruction.SHR;
+        alu.a = LIGHT;
+        alu.b = 16b1111;
+        text = {"s", "h", "r", 7b10};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SHR_ERR;
+        }
+      state.SHR_ERR:
+        alu.alufn = Instruction.SHR;
+        alu.a = LIGHT;
+        alu.b = 16b1111 - 1;
+        text = {"s", "h", "r", "e"};
+        if (alu.alu == 16b1) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }   
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SRA1;
+        } 
+      state.SRA1:
+        alu.alufn = Instruction.SRA;
+        alu.a = 16b101;
+        alu.b = 16b1;
+        text = {"s", "r", "a", 7b1};
+        if (alu.alu == 16b10) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SRA2;
+        }
+      state.SRA2:
+        alu.alufn = Instruction.SRA;
+        alu.a = 16b1010000000000000;
+        alu.b = 16b11;
+        text = {"s", "r", "a", 7b10};
+        if (alu.alu == 16b1111010000000000) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.SRA_ERR;
+        }                                              
+      state.SRA_ERR:
+        alu.alufn = Instruction.SRA;
+        alu.a = 16b1010000000000000;
+        alu.b = 16b11 + 1;
+        text = {"s", "r", "a", "e"};
+        if (alu.alu == 16b1111010000000000) {
+          out = LIGHT;
+        } else {
+          out = 16x{counter.q[BLINK]};
+        }
+        
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }  
+        if (counter.q[DELAY] == 1) {
+        counter.d = 0;
+        state.d = state.PASS;
+        }               
+      state.PASS:
+        text = {"p", "a", "s", "s"};
+                                                                                       
+        if (io_button[4] == 1) {
+          state.d = state.IDLE;
+        }
+                        
   }
 }
 }
